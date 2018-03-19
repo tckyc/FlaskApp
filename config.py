@@ -10,8 +10,8 @@ class Config:
     MAIL_SERVER = 'smtp.qq.com'
     MAIL_POST = 587
     MAIL_USE_TLS = True
-    MAIL_USERNAME = '2034653239@qq.com'  # os.environ.get('MAIL_USERNAME')
-    MAIL_PASSWORD = 'ptwbyczpstvbbffa'  # os.environ.get('MAIL_PASSWORD')
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     @staticmethod
