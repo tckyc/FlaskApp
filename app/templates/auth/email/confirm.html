@@ -1,0 +1,7 @@
+<p>你好！ {{ user.username }},</p>
+<p>歡迎來到 <b>測試</b>!</p>
+<p>為了確認你的郵箱 <a href="{{ url_for('auth.confirm', token=token, _external=True) }}">點此鏈接</a>.</p>
+<p>你也可以複製下面的連接地址：</p>
+<p>{{ url_for('auth.confirm', token=token, _external=True) }}</p>
+<p>測試</p>
+<p><small>請在郵件發送一小時內完成確認</small></p>

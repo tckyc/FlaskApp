@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}確認郵件{% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+    <h1>
+       你好, {{ current_user.username }}!
+    </h1>
+    <h3>你的郵箱還沒有確認，請先確認</h3>
+    <p>
+        在你登錄前請先確認郵箱
+    </p>
+    <p>
+        需要另一份確認郵件？
+        <a href="{{ url_for('auth.resend_confirmation') }}">點擊此處</a>
+    </p>
+</div>
+{% endblock %}
