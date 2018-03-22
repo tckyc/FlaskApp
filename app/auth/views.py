@@ -9,12 +9,13 @@ from ..email import send_email
 
 @auth.before_app_request
 def before_request():
-    if current_user.is_authenticated \
-        and not current_user.confirmed \
-        and request.endpoint \
-        and request.blueprint !='auth' \
-        and request.endpoint !='static':  # 1是否登陆/是否邮箱确认/请求端点在不在认证蓝本中
-        return redirect(url_for('auth.unconfirmed'))
+    if current_user.is_authenticated:  # 是否登陆,是则刷新时间
+        current_user.ping()
+        if not current_user.confirmed \
+                and request.endpoint \
+                and request.blueprint !='auth' \
+                and request.endpoint !='static':  # 1是否邮箱确认/请求端点在不在认证蓝本中
+            return redirect(url_for('auth.unconfirmed'))
 
 
 @auth.route('/unconfirmed')
@@ -59,8 +60,6 @@ def register():
         token = user.generate_confirmation_token()
         send_email(user.email, '確認郵件', 'auth/email/confirm', user=user, token=token)
         flash('確認郵件已經發送到您的郵箱')
-        # users_role = User.query.filter_by(username='susan').first().role
-        # user_db = User(user, role=users_role)
         return redirect(url_for('auth.login'))
     return render_template('auth/register.html', form=form)
 
@@ -68,7 +67,6 @@ def register():
 @auth.route('/confirm/<token>')
 @login_required
 def confirm(token):
-    flash(token)
     if current_user.confirmed:
         return redirect(url_for('main.index'))
     if current_user.confirm(token):
@@ -76,7 +74,6 @@ def confirm(token):
         flash('你已成功確認郵箱')
     else:
         flash('鏈接錯誤或失效')
-        # flash(current_user.confirm(token))
     return redirect(url_for('main.index'))
 
 
