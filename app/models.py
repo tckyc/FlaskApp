@@ -5,6 +5,8 @@ from .import login_manager
 from itsdangerous import TimedJSONWebSignatureSerializer as Serializer
 from flask import current_app, flash, request
 from datetime import datetime
+from markdown import markdown
+import bleach
 import hashlib
 
 
@@ -59,7 +61,6 @@ class Role(db.Model):
     def add_permission(self, perm):
         if not self.has_permission(perm):
             self.permissions += perm
-            print('1')
 
     def remove_permission(self, perm):
         if self.has_permission(perm):
@@ -73,6 +74,34 @@ class Role(db.Model):
 
     def __repr__(self):
         return '<Role %r>' % self.name
+
+
+class Follow(db.Model):
+    __tablename__ = 'follows'
+    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Post(db.Model):
+    __tablename__ = 'posts'
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.Text)
+    body_html = db.Column(db.Text)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+
+    @staticmethod
+    def on_changed_body(target, value, oldvalue, initiator):
+        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
+                        'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
+                        'h1', 'h2', 'h3', 'p']
+        target.body_html = bleach.linkify(bleach.clean(
+            markdown(value, output_format='html'),
+            tags=allowed_tags, strip=True))
+
+
+db.event.listen(Post.body, 'set', Post.on_changed_body)
 
 
 class User(UserMixin, db.Model):
@@ -89,6 +118,17 @@ class User(UserMixin, db.Model):
     member_since = db.Column(db.DateTime(), default=datetime.utcnow)
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)
     # default 可接受函数为默认值，生成默认值时调用指定函数所以datetime.utcnow不加（）
+    posts = db.relationship('Post', backref='author', lazy='dynamic')
+    followed = db.relationship('Follow',
+                               foreign_keys=[Follow.follower_id],
+                               backref=db.backref('follower', lazy='joined'),
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
+    follower = db.relationship('Follow',
+                               foreign_keys=[Follow.followed_id],
+                               backref=db.backref('followed', lazy='joined'),
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
 
     def gravatar(self, size=100, default='identicon', rating='g'):
         if request.is_secure:
@@ -155,6 +195,32 @@ class User(UserMixin, db.Model):
             return False
     login_manager.anonymous_user = AnonymousUser
     # 登记为未登录的current_user的值，以便在未登录时调用current_user.can(),current_user.is_administrator()
+
+    def follow(self, user):
+        if not self. is_following(user):
+            f = Follow(follower=self, followed=user)
+            db.session.add(f)
+            db.session.commit()
+
+    def unfollow(self, user):
+        f = self.followed.filter_by(followed_id=user.id).first()
+        if f:
+            db.session.delete(f)
+            db.session.commit()
+
+    def is_following(self, user):
+        if user.id is None:
+            return False
+        return self.followed.filter_by(followed_id=user.id).first() is not None
+
+    def is_followed_by(self, user):
+        if user.id is None:
+            return False
+        return self.follower.filter_by(follower_id=user.id).first() is not None
+
+    @property
+    def followed_posts(self):
+        return Post.query.join(Follow, Follow.followed_id == Post.author_id).filter(Follow.follower_id == self.id)
 
     def __repr__(self):
         return '<User %r>' % self.username
